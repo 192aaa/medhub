@@ -18,6 +18,30 @@
 - MySQL 8（`localhost:3306`，账号 `root`，开发库 `cloud_consultation`，测试库 `cloud_consultation_test`）
 - Redis（`localhost:6379`，test profile 使用 db 1）
 
+### 数据库初始化
+
+首次运行前创建空库，Flyway 会自动建表；dev profile 还会加载演示种子：
+
+```sql
+CREATE DATABASE cloud_consultation CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+CREATE DATABASE cloud_consultation_test CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+```
+
+### 环境变量
+
+数据库密码不再写入配置文件，启动和测试前必须设置：
+
+```powershell
+$env:MYSQL_PASSWORD = "你的 MySQL root 密码"
+$env:TEST_DB_PASSWORD = "你的 MySQL root 密码"   # 仅跑后端测试时需要
+```
+
+AI 功能按需设置（见“AI 导诊配置”）：
+
+```powershell
+$env:DEEPSEEK_API_KEY = "你的 key"
+```
+
 ## 快速启动
 
 ### 1. 基础服务
@@ -34,8 +58,11 @@ MySQL 以系统服务方式运行即可。
 cd server
 $env:PATH += ";C:\tools\apache-maven-3.9.6\bin"
 mvn -o package -DskipTests
-java -jar target/sdas-server-0.0.1-SNAPSHOT.jar   # http://localhost:8080
+$env:SERVER_PORT = "8081"   # 与前端代理目标保持一致
+java -jar target/sdas-server-0.0.1-SNAPSHOT.jar   # http://localhost:8081
 ```
+
+> `web/.env.development` 中 `VITE_API_TARGET=http://localhost:8081`，因此本机默认用 8081。若要使用后端默认端口 8080，请把该值改为 `http://localhost:8080` 并去掉 `$env:SERVER_PORT` 设置。
 
 - 默认 profile 为 `dev`（连 `cloud_consultation` 库，加载 `db/seed` 演示种子）。
 - 需要连测试库时指定 `test`（连 `cloud_consultation_test`，不加载种子）：
@@ -51,6 +78,7 @@ java -jar target/sdas-server-0.0.1-SNAPSHOT.jar   # http://localhost:8080
 
 ```powershell
 cd web
+npm install   # 首次运行
 npm run dev   # http://localhost:5183
 ```
 
@@ -120,6 +148,8 @@ VALUES (<患者ID>, '2026-10-01', 1, 101, '既往内科就诊');
 ## 测试
 
 ### 后端（无需 Docker，复用本机 MySQL/Redis）
+
+> 先确认 `$env:MYSQL_PASSWORD` 和 `$env:TEST_DB_PASSWORD` 已设置（见“环境变量”）。
 
 ```powershell
 cd server
