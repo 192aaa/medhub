@@ -2,45 +2,52 @@
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createPrescription } from '@/api/doctor-consultation'
+import { listDrugs } from '@/api/treatment-decision'
 import { API_CODE } from '@/api/error-codes'
-import type { PrescriptionItemRequest } from '@/api/types'
+import type { DrugView, PrescriptionItemRequest } from '@/api/types'
 import TreatmentDecisionPanel from '@/components/treatment-decision-panel.vue'
 import { useTreatmentDecisionStore } from '@/stores/treatment-decision'
-
-/**
- * 演示药品目录（MVP 占位）。契约 9 端点未含「药品目录查询」端点，
- * 此处为前端演示数据；后端以 drugId 校验目录存在且启用（DRUG_NOT_FOUND）。
- */
-interface DemoDrug {
-  drugId: number
-  name: string
-  spec: string
-}
-const DEMO_DRUGS: DemoDrug[] = [
-  { drugId: 901, name: '阿莫西林胶囊', spec: '0.25g*20' },
-  { drugId: 902, name: '布洛芬缓释胶囊', spec: '0.3g*20' },
-  { drugId: 903, name: '对乙酰氨基酚片', spec: '0.5g*10' },
-  { drugId: 904, name: '感冒灵颗粒', spec: '10g*9' },
-  { drugId: 905, name: '头孢克洛胶囊', spec: '0.25g*12' },
-]
 
 const route = useRoute()
 const router = useRouter()
 const consultationId = Number(route.query.consultationId)
 
-const items = ref<PrescriptionItemRequest[]>([{ drugId: 901, dosage: '', caution: '' }])
+const drugs = ref<DrugView[]>([])
+const items = ref<PrescriptionItemRequest[]>([])
 const errorMessage = ref('')
 const loading = ref(false)
+const loadingDrugs = ref(true)
 
 const treatmentDecisionStore = useTreatmentDecisionStore()
+
+function emptyItem(): PrescriptionItemRequest {
+  return { drugId: drugs.value[0]?.drugId ?? 0, dosage: '', caution: '' }
+}
+
+async function loadDrugs() {
+  try {
+    const res = await listDrugs('', 1, 50)
+    if (res.code === API_CODE.SUCCESS && res.data) {
+      drugs.value = res.data.list
+      if (drugs.value.length > 0) items.value = [emptyItem()]
+    } else {
+      errorMessage.value = res.message
+    }
+  } catch {
+    errorMessage.value = '药品目录加载失败，请稍后重试'
+  } finally {
+    loadingDrugs.value = false
+  }
+}
 
 // FR-001：进入开方页自动触发一次；降级不改变表单默认值与校验
 onMounted(() => {
   void treatmentDecisionStore.load(consultationId)
+  void loadDrugs()
 })
 
 function addItem() {
-  items.value.push({ drugId: 901, dosage: '', caution: '' })
+  items.value.push(emptyItem())
 }
 
 function removeItem(index: number) {
@@ -54,6 +61,10 @@ async function submit() {
     return
   }
   for (const item of items.value) {
+    if (!item.drugId) {
+      errorMessage.value = '请选择药品'
+      return
+    }
     if (!item.dosage.trim()) {
       errorMessage.value = '请填写用法用量'
       return
@@ -85,6 +96,7 @@ async function submit() {
     <div class="layout">
       <div class="card form">
         <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
+        <p v-if="loadingDrugs" class="muted">正在加载药品目录...</p>
 
         <div v-for="(item, index) in items" :key="index" class="item">
           <div class="item__head">
@@ -98,9 +110,9 @@ async function submit() {
               删除
             </button>
           </div>
-          <select v-model.number="item.drugId" aria-label="选择药品">
-            <option v-for="drug in DEMO_DRUGS" :key="drug.drugId" :value="drug.drugId">
-              {{ drug.name }}（{{ drug.spec }}）
+          <select v-model.number="item.drugId" aria-label="选择药品" :disabled="loadingDrugs">
+            <option v-for="drug in drugs" :key="drug.drugId" :value="drug.drugId">
+              {{ drug.drugName }}（{{ drug.spec }}）
             </option>
           </select>
           <input
@@ -112,7 +124,14 @@ async function submit() {
         </div>
 
         <div class="actions">
-          <button type="button" class="btn btn--ghost" @click="addItem">+ 添加药品</button>
+          <button
+            type="button"
+            class="btn btn--ghost"
+            :disabled="loadingDrugs || drugs.length === 0"
+            @click="addItem"
+          >
+            + 添加药品
+          </button>
           <button type="button" class="btn btn--primary" :disabled="loading" @click="submit">
             {{ loading ? '开具中…' : '确认签名并开具' }}
           </button>

@@ -100,7 +100,7 @@ class TriageFlowIT extends AppointmentTestSupport {
                 .thenReturn(new TriageAiResult(true, List.of("皮肤美容科")));
 
         MvcResult result = mockMvc.perform(postJson(PATH, null,
-                        "{\"complaint\":\"失眠多梦\"}"))
+                        "{\"complaint\":\"无关描述xyz\"}"))
                 .andExpect(status().isOk()).andReturn();
 
         JsonNode data = body(result).path("data");

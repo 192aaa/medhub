@@ -52,7 +52,7 @@ class FoundationalIT extends IdentityTestSupport {
     @Test
     @DisplayName("配置绑定与默认规则回落")
     void configurationBound() {
-        assertThat(healthProperties.model()).isEqualTo("deepseek-v4-flash");
+        assertThat(healthProperties.model()).isEqualTo("DeepSeek-Flash-1017");
         assertThat(healthProperties.historyWindow()).isEqualTo(12);
         assertThat(healthProperties.messageMaxChars()).isEqualTo(2000);
         assertThat(hospitalProperties.emergencyPhone()).isNotBlank();
