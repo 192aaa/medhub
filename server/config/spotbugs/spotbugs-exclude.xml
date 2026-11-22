@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <!-- DTO / 实体为纯数据载体，暴露内部引用属预期 -->
+    <Match>
+        <Class name="~.*\.(dto|entity|model)\..*"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+    <!-- Spring 注入的字段由容器管理 -->
+    <Match>
+        <Bug pattern="NP_NONNULL_FIELD_NOT_INITIALIZED_IN_CONSTRUCTOR"/>
+    </Match>
+
+    <!--
+      EI_EXPOSE_REP2：构造器把 Spring 容器管理的 Bean（JdbcTemplate / StringRedisTemplate /
+      Repository / Service 等）保存为字段。这些对象的生命周期由 IoC 容器持有，调用方无法通过
+      构造器回写或篡改，属静态分析误报。仅豁免已知的业务组件包，不覆盖后续新增的业务包。
+      注意：EI_EXPOSE_REP（getter 返回内部可变对象）不在豁免范围，需通过防御性拷贝实际修复。
+    -->
+    <Match>
+        <Class name="~com\.sdas\.server\.(common|config|appointment\.(repository|service\.impl|support)|doctor\.(repository|service\.impl|support)|health\.repository|identity\.(controller|repository|service\.impl|support)|pharmacy\.(repository|service|service\.impl|support)|prescription\.(repository|service|service\.impl|support))\..*"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!--
+      OBL_UNSATISFIED_OBLIGATION_EXCEPTION_EDGE：insert 的 PreparedStatementCreator lambda
+      返回 PreparedStatement 交给 JdbcTemplate.update(...) 使用并由其关闭；SpotBugs 无法
+      识别框架在异常路径上的清理保证。仅豁免 repository 包下 insert 产生的 lambda。
+    -->
+    <Match>
+        <Class name="~com\.sdas\.server\.(appointment|doctor|identity|pharmacy|prescription)\.repository\..*"/>
+        <Method name="~lambda\$insert\$[0-9]+"/>
+        <Bug pattern="OBL_UNSATISFIED_OBLIGATION_EXCEPTION_EDGE"/>
+    </Match>
+</FindBugsFilter>

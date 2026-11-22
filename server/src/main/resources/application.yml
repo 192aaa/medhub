@@ -1,0 +1,161 @@
+# 公共配置：所有环境共享。环境差异放 application-{dev,test,prod}.yml
+spring:
+  application:
+    name: medhub-server
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  jackson:
+    # 宪法原则 III：LocalDateTime 全局 ISO 8601，禁止时间戳数组
+    time-zone: Asia/Shanghai
+    date-format: "yyyy-MM-dd'T'HH:mm:ss"
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+  ai:
+    openai:
+      # 必须通过环境变量 DEEPSEEK_API_KEY 注入，禁止将真实 Key 写入配置文件或默认值
+      api-key: ${DEEPSEEK_API_KEY:}
+      # 根地址即可；Spring AI 会自动拼接 /v1/chat/completions（勿写完整端点，否则重复）
+      base-url: https://api.sophnet.com
+      chat:
+        options:
+          # DeepSeek OpenAI 兼容模型名，请以官方当前可用模型名为准（deepseek-chat / deepseek-reasoner）
+          model: DeepSeek-Flash-1017
+          # 推理模型需足够输出预算，否则 content 会被 reasoning 耗尽而为空
+          max-tokens: 1024
+
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    session:
+      cookie:
+        # 宪法原则 IV：SameSite=Lax（双重 Cookie 校验在接入认证模块时实现）
+        same-site: lax
+        http-only: true
+        secure: ${COOKIE_SECURE:false}
+
+# 宪法原则 III：服务端支持跨域；生产由 CORS_ALLOWED_ORIGINS 覆盖，禁止使用 * 配合 allowCredentials
+sdas:
+  cors:
+    # 开发默认源与 quickstart.md 的 Vite 端口 5183 一致；生产必须由 CORS_ALLOWED_ORIGINS 显式注入
+    allowed-origin-patterns: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,http://localhost:5183,http://127.0.0.1:5183}
+  # 配置唯一来源：specs/001-patient-identity/data-model.md 第 6 节（16 项）
+  identity:
+    verification-code:
+      fixed-enabled: true
+      fixed-code: ${SDAS_FIXED_CODE:888888}
+      ttl-seconds: 300
+      send-interval-seconds: 60
+      daily-limit: 10
+      max-attempts: 5
+    agreement:
+      version: ${SDAS_AGREEMENT_VERSION:v1.0}
+    jwt:
+      access-token-ttl-seconds: 7200
+      refresh-token-ttl-seconds: 604800
+      secret: ${SDAS_JWT_SECRET}
+    crypto:
+      id-card-secret: ${SDAS_ID_CARD_HMAC_SECRET}
+      phone-secret: ${SDAS_PHONE_HMAC_SECRET}
+      aes-key: ${SDAS_AES_KEY}
+    whitelist:
+      source: DATABASE_PRESET
+  # 预约挂号与图文问诊配置：specs/002-appointment-consultation/data-model.md §3
+  appointment:
+    # MVP 模拟支付；prod 必须由 SDAS_MOCK_PAYMENT_ENABLED=false 显式关闭（analysis.md RK-04）
+    mock-payment-enabled: ${SDAS_MOCK_PAYMENT_ENABLED:true}
+    payment-timeout-seconds: 900
+  ai:
+    triage:
+      timeout-millis: ${SDAS_TRIAGE_TIMEOUT_MILLIS:5000}
+      fallback: FULL_DEPARTMENT_LIST
+      model: ${SDAS_TRIAGE_MODEL:DeepSeek-Flash-1017}
+    decision:
+      timeout-millis: ${SDAS_DECISION_TIMEOUT_MILLIS:5000}
+      model: ${SDAS_DECISION_MODEL:DeepSeek-Flash-1017}
+    # AI辅助治疗决策：specs/006-ai-treatment-decision/data-model.md §6
+    treatment:
+      model: ${SDAS_AI_TREATMENT_MODEL:DeepSeek-Flash-1017}
+      timeout-millis: ${SDAS_AI_TREATMENT_TIMEOUT_MILLIS:15000}
+      max-output-tokens: ${SDAS_AI_TREATMENT_MAX_OUTPUT_TOKENS:2048}
+      dialog-max-messages: ${SDAS_AI_TREATMENT_DIALOG_MAX_MESSAGES:40}
+      dialog-max-chars: ${SDAS_AI_TREATMENT_DIALOG_MAX_CHARS:3000}
+      knowledge-top-k: ${SDAS_AI_TREATMENT_KNOWLEDGE_TOP_K:5}
+      max-suggestions: ${SDAS_AI_TREATMENT_MAX_SUGGESTIONS:5}
+      max-medications: ${SDAS_AI_TREATMENT_MAX_MEDICATIONS:10}
+      regenerate-limit-per-hour: ${SDAS_AI_TREATMENT_REGENERATE_LIMIT:3}
+      reuse-window-minutes: ${SDAS_AI_TREATMENT_REUSE_WINDOW_MINUTES:30}
+    # AI健康咨询：specs/005-ai-health-consultation/data-model.md §6
+    health:
+      model: ${SDAS_AI_HEALTH_MODEL:DeepSeek-Flash-1017}
+      # 单轮整体截止
+      timeout-millis: ${SDAS_AI_HEALTH_TIMEOUT_MILLIS:8000}
+      # 首包 / item 间空闲超时（SC-001）
+      first-token-timeout-millis: ${SDAS_AI_HEALTH_FIRST_TOKEN_TIMEOUT_MILLIS:3000}
+      max-output-tokens: ${SDAS_AI_HEALTH_MAX_OUTPUT_TOKENS:1024}
+      # prompt 总预算，其中病历摘要单独限制
+      context-max-chars: ${SDAS_AI_HEALTH_CONTEXT_MAX_CHARS:6000}
+      context-medical-max-chars: ${SDAS_AI_HEALTH_CONTEXT_MEDICAL_MAX_CHARS:1500}
+      history-window: ${SDAS_AI_HEALTH_HISTORY_WINDOW:12}
+      message-max-chars: ${SDAS_AI_HEALTH_MESSAGE_MAX_CHARS:2000}
+      session-message-limit: ${SDAS_AI_HEALTH_SESSION_MESSAGE_LIMIT:200}
+      knowledge-top-k: ${SDAS_AI_HEALTH_KNOWLEDGE_TOP_K:5}
+      emergency:
+        # 留空即启用内置默认表（DefaultEmergencyRules），禁止配置为空数组以外的方式「关闭」预警
+        # 示例：
+        # rules:
+        #   - code: CHEST_PAIN_DYSPNEA
+        #     name: 胸痛伴呼吸困难
+        #     level: HIGH
+        #     departmentName: 心血管内科
+        #     keywords: [胸痛, 胸口疼, 胸闷, 喘不上气, 呼吸困难]
+        rules: []
+  # 医院结构化信息：specs/005-ai-health-consultation/data-model.md §6（R-05）
+  hospital:
+    name: ${SDAS_HOSPITAL_NAME:示例医院}
+    address: ${SDAS_HOSPITAL_ADDRESS:示例市示例区示例路 1 号}
+    phone: ${SDAS_HOSPITAL_PHONE:0000-00000000}
+    emergency-phone: ${SDAS_HOSPITAL_EMERGENCY_PHONE:120}
+    service-hours: ${SDAS_HOSPITAL_SERVICE_HOURS:08:00-17:30}
+  # 医生接诊配置：specs/003-doctor-consultation/data-model.md §3
+  doctor:
+    timeout-hours: 24
+    reply-max-chars: 1000
+    prescription-valid-days: 3
+    signature:
+      key-store-path: ${SDAS_DOCTOR_KEYSTORE:./keystore/doctor-signing.jks}
+      key-alias: doctor-signing
+      key-store-password: ${SDAS_DOCTOR_KEYSTORE_PASSWORD:changeit}
+      algorithm: SHA256withRSA
+    prescription:
+      verify-url-template: "${SDAS_PRESCRIPTION_VERIFY_URL:http://localhost:5183/verify-prescription?prescriptionId=%s&sig=%s}"
+      watermark-prefix: 示例医院
+  # 处方取药配置：specs/004-prescription-dispensing/data-model.md §6
+  pharmacy:
+    qr:
+      # 模板只有一个 %s 占位（令牌自身已含密文与签名）
+      verify-url-template: "${SDAS_PHARMACY_VERIFY_URL:http://localhost:5183/pharmacy/verify?t=%s}"
+      # 令牌版本前缀；后续轮换时升为 v2，且 v1 不得被 v2 冒充验过
+      token-version: v1
+      # 手工输入验真码长度，需与前端展示一致
+      verify-code-length: 12
+      # 二维码 PNG 边长与纠错级别（R-09：令牌约 470 字符，需 480px + M 级）
+      image-size: 480
+      error-correction: M
+      # 令牌宽限天数：exp = 处方 valid_until + 本值。
+      # 处方过期后仍要能扫出「已过期」状态（而不是凭证无效错误页），故令牌必须比处方活得久。
+      token-grace-days: 30
+  storage:
+    images:
+      location: ${APP_UPLOAD_DIR:./uploads/consultation}
+      allowed-content-types: image/jpeg,image/png,image/webp
+      max-size-bytes: 5242880
+      max-count: 9
+      serve-path: /static/consultation-images
+
+# 不在 sdas.identity 前缀下，由独立的 CookieProperties(prefix="cookie") 绑定
+cookie:
+  secure: ${COOKIE_SECURE:false}
+
+# logback-spring.xml 位于 classpath 根目录，由 Spring Boot 自动加载（支持 springProfile 分环境）

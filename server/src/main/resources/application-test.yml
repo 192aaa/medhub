@@ -1,0 +1,38 @@
+# 测试环境配置
+# 宪法原则 VI：测试数据库须与生产同套 Flyway 脚本，禁止在此设置 spring.flyway.enabled=false 绕过迁移。
+# test 与 prod 共用 db/migration/V1；db/seed 演示种子仅 dev 加载，测试白名单由 IdentityFixture 动态写入。
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 与 dev/prod 一致：UTF-8 映射 utf8mb4，connectionCollation 对齐 V1 建表脚本
+    url: ${TEST_DB_URL:jdbc:mysql://localhost:3306/cloud_consultation_test?useUnicode=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_general_ci&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${TEST_DB_USERNAME:root}
+    password: ${TEST_DB_PASSWORD}
+    hikari:
+      pool-name: SdasTestHikariPool
+      minimum-idle: 1
+      maximum-pool-size: 5
+      connection-timeout: 2000
+      connection-test-query: SELECT 1
+  data:
+    redis:
+      host: ${TEST_REDIS_HOST:localhost}
+      port: ${TEST_REDIS_PORT:6379}
+      # 使用独立 DB，避免污染开发/生产缓存数据
+      database: 1
+      timeout: 2s
+      connect-timeout: 2s
+
+# 测试占位密钥：CI 无需预置环境变量即可启动（T008 也会用 @DynamicPropertySource 兜底）
+sdas:
+  identity:
+    jwt:
+      secret: test-only-jwt-secret-please-replace-in-production-000000
+    crypto:
+      id-card-secret: test-only-id-card-hmac-secret-000000
+      phone-secret: test-only-phone-hmac-secret-000000
+      aes-key: dGVzdC1vbmx5LWFlcy1rZXktMzItYnl0ZXMtMDAwMDA=
+
+logging:
+  level:
+    root: WARN

@@ -1,0 +1,8 @@
+target/
+# dev/test 自动生成的处方签名密钥库，禁止入库
+keystore/
+logs/
+*.log
+.idea/
+*.iml
+.env

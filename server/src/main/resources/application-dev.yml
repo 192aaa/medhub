@@ -1,0 +1,50 @@
+# 本地开发环境：数据库 cloud_consultation，账号 root；数据库密码必须通过环境变量 MYSQL_PASSWORD 注入
+spring:
+  # 仅 dev 加载 db/seed 演示种子；test/prod 的 locations 只含 db/migration（T022）
+  flyway:
+    locations: classpath:db/migration,classpath:db/seed
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # characterEncoding 必须写 UTF-8（Connector/J 映射 utf8mb4）；写 utf8 会被映射为 utf8mb3，存不下 4 字节字符
+    # connectionCollation 与 V1 建表脚本的 utf8mb4_general_ci 保持一致，避免 Illegal mix of collations
+    url: jdbc:mysql://localhost:3306/cloud_consultation?useUnicode=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_general_ci&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: ${MYSQL_PASSWORD}
+    hikari:
+      pool-name: SdasHikariPool
+      minimum-idle: 2
+      maximum-pool-size: 10
+      # 健康检查需快速失败，避免探针被阻塞
+      connection-timeout: 2000
+      validation-timeout: 1000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      connection-test-query: SELECT 1
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+      timeout: 2s
+      connect-timeout: 2s
+      lettuce:
+        pool:
+          enabled: true
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: 2s
+
+# dev/test 占位密钥：仅用于本地与 CI，禁止用于生产（生产缺失环境变量即启动失败）
+sdas:
+  identity:
+    jwt:
+      secret: dev-only-jwt-secret-please-replace-in-production-000000
+    crypto:
+      id-card-secret: dev-only-id-card-hmac-secret-000000
+      phone-secret: dev-only-phone-hmac-secret-000000
+      aes-key: ZGV2LW9ubHktYWVzLWtleS0zMi1ieXRlcy0wMDAwMDA=
+
+logging:
+  level:
+    com.sdas.server: DEBUG

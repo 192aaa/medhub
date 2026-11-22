@@ -1,0 +1,47 @@
+# 生产环境：所有凭据由环境变量注入，禁止在配置文件中写入明文
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # DB_URL 必须带 useUnicode=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_general_ci
+    # （characterEncoding 写 utf8 会被映射为 utf8mb3，导致 4 字节中文/emoji 写入失败或出现乱码）
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      pool-name: SdasHikariPool
+      minimum-idle: 5
+      maximum-pool-size: 20
+      connection-timeout: 2000
+      validation-timeout: 1000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      connection-test-query: SELECT 1
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      # 如启用密码认证，取消下面一行注释并注入 REDIS_PASSWORD
+      # password: ${REDIS_PASSWORD}
+      database: 0
+      timeout: 2s
+      connect-timeout: 2s
+      lettuce:
+        pool:
+          enabled: true
+          max-active: 16
+          max-idle: 16
+          min-idle: 2
+          max-wait: 2s
+  ai:
+    openai:
+      api-key: ${DEEPSEEK_API_KEY}
+
+# D1 fail-fast：生产禁用固定验证码；密钥仍由 ${SDAS_*} 注入，缺失即启动失败
+sdas:
+  identity:
+    verification-code:
+      fixed-enabled: false
+
+logging:
+  level:
+    com.sdas.server: INFO
