@@ -10,6 +10,8 @@
 
 **唯一来源约束**：枚举与 `ErrorCode` 以 `data-model.md` 第 1、5 节为准；请求/响应字段以 `contracts/ai-treatment-decision-api.md` 为准；Mock 以 `contracts/mocks.md`（M1–M9）为准；类名、方法名、配置键不得自行发明。
 
+> **进度说明（2026-11-22）**：下方复选框未随实现同步更新，请勿把“未勾选”等同于“未实现”。代码抽查显示 `TreatmentDecisionController`、`TreatmentDecisionService`、降级链路等类已存在；完整状态以实际代码和 `testsdoc/` 为准，复选框待人工逐项复核。
+
 ## 格式说明
 
 - `[ID]`：任务编号，`T001` 起连续编号。
