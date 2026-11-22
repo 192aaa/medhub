@@ -1,33 +1,63 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { usePatientStore } from '@/stores/patient'
+import { useAppointmentStore } from '@/stores/appointment'
+import { useConsultationStore } from '@/stores/consultation'
 import { AUTH_STATUS } from '@/api/types'
 
-/**
- * SC-003 唯一验证载体（T092）：最小占位门禁入口。
- *
- * 仅展示门禁状态与引导，不调用任何问诊 API、不实现问诊业务；
- * 未认证访问由 requiresVerified 守卫直接重定向至认证页。
- */
-const store = usePatientStore()
+/** SC-003：实名门禁通过后的问诊入口，引导至真实业务流程。 */
+const patientStore = usePatientStore()
+const appointmentStore = useAppointmentStore()
+const consultationStore = useConsultationStore()
+
 const allowed = computed(
-  () => store.authStatus === AUTH_STATUS.VERIFIED && store.consultationAllowed,
+  () =>
+    patientStore.authStatus === AUTH_STATUS.VERIFIED && patientStore.consultationAllowed,
+)
+const canContinue = computed(
+  () => appointmentStore.paymentStatus === 'PAID' && !consultationStore.consultationId,
+)
+const detailLink = computed(() =>
+  consultationStore.consultationId
+    ? `/appointment/consultation/${consultationStore.consultationId}`
+    : null,
 )
 </script>
 
 <template>
   <main class="entry">
-    <div class="card entry__card">
+    <div v-if="allowed" class="card entry__card" data-testid="consultation-hub">
       <h1>线上问诊</h1>
-      <p v-if="allowed" class="entry__msg" data-testid="consultation-placeholder">
-        线上问诊建设中
-      </p>
-      <template v-else>
-        <p class="entry__msg" data-testid="consultation-denied">问诊门禁未放行</p>
-        <RouterLink class="btn btn--primary" to="/patient/identity-verification">
-          去实名认证
+      <p class="entry__msg">选择发起图文问诊，或继续使用 AI 健康咨询。</p>
+      <div class="entry__actions">
+        <RouterLink
+          class="btn btn--primary"
+          to="/appointment/departments"
+          data-testid="start-consultation"
+        >
+          发起图文问诊
         </RouterLink>
-      </template>
+        <RouterLink class="btn" to="/health-consultation">AI 健康咨询</RouterLink>
+        <RouterLink
+          v-if="canContinue"
+          class="btn"
+          to="/appointment/consultation"
+          data-testid="continue-consultation"
+        >
+          继续提交问诊单
+        </RouterLink>
+        <RouterLink v-if="detailLink" class="btn" :to="detailLink" data-testid="view-consultation">
+          查看问诊单
+        </RouterLink>
+      </div>
+    </div>
+
+    <div v-else class="card entry__card">
+      <h1>线上问诊</h1>
+      <p class="entry__msg" data-testid="consultation-denied">问诊门禁未放行</p>
+      <RouterLink class="btn btn--primary" to="/patient/identity-verification">
+        去实名认证
+      </RouterLink>
     </div>
   </main>
 </template>
@@ -41,18 +71,25 @@ const allowed = computed(
 
 .entry__card {
   width: 100%;
-  max-width: 26rem;
-  padding: 2rem 1.75rem;
+  max-width: 520px;
+  padding: 2rem;
   text-align: center;
 }
 
 .entry__card h1 {
   margin: 0 0 0.75rem;
-  font-size: 1.4rem;
+  font-size: 1.5rem;
 }
 
 .entry__msg {
-  margin: 0 0 1rem;
+  margin: 0 0 1.5rem;
   color: var(--sdas-muted);
+}
+
+.entry__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
 }
 </style>

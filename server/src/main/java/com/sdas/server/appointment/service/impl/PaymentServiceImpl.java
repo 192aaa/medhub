@@ -80,10 +80,33 @@ public class PaymentServiceImpl implements PaymentService {
 
         String outTradeNo = MOCK_CHANNEL + System.nanoTime();
         PaymentRecord record = new PaymentRecord(null, appointmentId, PaymentChannel.MOCK,
-                appointment.feeAmount(), outTradeNo, PaymentRecordStatus.SUCCESS, LocalDateTime.now(),
-                null, null, 0);
+                appointment.feeAmount(), outTradeNo, PaymentRecordStatus.PENDING, null, null, null, 0);
         long paymentId = paymentRecordRepository.insert(record);
+        return new PaymentResponse(appointmentId, paymentId, appointment.feeAmount(),
+                PaymentChannel.MOCK.name(), PaymentRecordStatus.PENDING.name(), null,
+                appointment.paymentStatus().name(), appointment.appointmentStatus().name());
+    }
 
+    @Override
+    @Transactional
+    public PaymentResponse confirm(long patientId, long appointmentId, long paymentId) {
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.APPOINTMENT_NOT_FOUND));
+        if (!appointment.patientId().equals(patientId)) {
+            throw new BusinessException(ErrorCode.APPOINTMENT_NOT_FOUND);
+        }
+        PaymentRecord record = paymentRecordRepository.findById(paymentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_FAILED));
+        if (!record.appointmentId().equals(appointmentId)
+                || record.status() != PaymentRecordStatus.PENDING) {
+            throw new BusinessException(ErrorCode.PAYMENT_FAILED);
+        }
+        if (appointment.appointmentStatus() != AppointmentStatus.PENDING_PAYMENT) {
+            throw new BusinessException(ErrorCode.INVALID_APPOINTMENT_STATUS);
+        }
+        if (paymentRecordRepository.markSuccess(paymentId, record.version()) == 0) {
+            throw new BusinessException(ErrorCode.PAYMENT_FAILED);
+        }
         int rows = appointmentRepository.updatePaymentStatus(appointmentId, PaymentStatus.PAID,
                 AppointmentStatus.PAID, appointment.version());
         if (rows == 0) {
@@ -91,8 +114,9 @@ public class PaymentServiceImpl implements PaymentService {
         }
         auditEventService.record(AuditEventType.APPOINTMENT_PAID, "SUCCESS", patientId, null, null,
                 null);
+        LocalDateTime paidAt = LocalDateTime.now();
         return new PaymentResponse(appointmentId, paymentId, appointment.feeAmount(),
-                PaymentChannel.MOCK.name(), PaymentRecordStatus.SUCCESS.name(), LocalDateTime.now(),
+                PaymentChannel.MOCK.name(), PaymentRecordStatus.SUCCESS.name(), paidAt,
                 PaymentStatus.PAID.name(), AppointmentStatus.PAID.name());
     }
 

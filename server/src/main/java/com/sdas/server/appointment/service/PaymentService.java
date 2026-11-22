@@ -18,6 +18,16 @@ public interface PaymentService {
     PaymentResponse pay(long patientId, long appointmentId, PaymentRequest request);
 
     /**
+     * 确认支付（沙箱收银台回调接入点）。仅 PENDING 流水可确认，同事务更新预约状态。
+     *
+     * @param patientId     当前患者
+     * @param appointmentId 挂号单
+     * @param paymentId     支付流水
+     * @return 支付响应
+     */
+    PaymentResponse confirm(long patientId, long appointmentId, long paymentId);
+
+    /**
      * 查询支付状态。
      *
      * @param patientId     当前患者

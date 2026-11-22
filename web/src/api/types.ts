@@ -315,7 +315,7 @@ export interface PaymentResponse {
   amount: number
   channel: PaymentChannel
   status: PaymentRecordStatus
-  paidAt: string
+  paidAt: string | null
   paymentStatus: PaymentStatus
   appointmentStatus: AppointmentStatus
 }
@@ -326,7 +326,7 @@ export interface PaymentStatusResponse {
   paymentId: number | null
   amount: number | null
   channel: PaymentChannel | null
-  status: PaymentStatus
+  status: PaymentRecordStatus | PaymentStatus
   paidAt: string | null
   paymentStatus: PaymentStatus
   appointmentStatus: AppointmentStatus

@@ -89,6 +89,19 @@ export async function payAppointment(
   return res.data
 }
 
+/** 端点 6c：确认沙箱支付（需认证，真实网关回调的接入点） */
+export async function confirmPayment(
+  appointmentId: number,
+  paymentId: number,
+): Promise<ApiResult<PaymentResponse>> {
+  const res = await patientRequest.post<ApiResult<PaymentResponse>>(
+    `/v1/appointments/${appointmentId}/payments/${paymentId}/confirm`,
+    null,
+    { headers: csrfHeaders() },
+  )
+  return res.data
+}
+
 /** 端点 6b：查询支付状态（需认证） */
 export async function getPaymentStatus(
   appointmentId: number,

@@ -20,14 +20,16 @@ function createWrapper(authStatus: AuthStatus, consultationAllowed: boolean) {
     registeredAt: '2026-11-07T10:15:30',
     agreementVersion: 'v1.0',
   })
+  const stub = { template: '<div>stub</div>' }
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
       { path: '/consultation/entry', component: ConsultationEntryView },
-      {
-        path: '/patient/identity-verification',
-        component: { template: '<div>verify</div>' },
-      },
+      { path: '/patient/identity-verification', component: stub },
+      { path: '/appointment/departments', component: stub },
+      { path: '/health-consultation', component: stub },
+      { path: '/appointment/consultation', component: stub },
+      { path: '/appointment/consultation/:id', component: stub },
     ],
   })
   return mount(ConsultationEntryView, { global: { plugins: [pinia, router] } })
@@ -38,10 +40,12 @@ describe('consultation-entry-view', () => {
     localStorage.clear()
   })
 
-  it('shows only the placeholder when verified and allowed', () => {
+  it('shows real consultation actions when verified and allowed', () => {
     const wrapper = createWrapper('VERIFIED', true)
 
-    expect(wrapper.get('[data-testid="consultation-placeholder"]').text()).toBe('线上问诊建设中')
+    expect(wrapper.find('[data-testid="consultation-hub"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="start-consultation"]').text()).toBe('发起图文问诊')
+    expect(wrapper.find('a[href="/health-consultation"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="consultation-denied"]').exists()).toBe(false)
   })
 
@@ -49,7 +53,7 @@ describe('consultation-entry-view', () => {
     const wrapper = createWrapper('UNVERIFIED', false)
 
     expect(wrapper.get('[data-testid="consultation-denied"]').text()).toBe('问诊门禁未放行')
-    expect(wrapper.find('[data-testid="consultation-placeholder"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="consultation-hub"]').exists()).toBe(false)
     expect(wrapper.find('a[href="/patient/identity-verification"]').exists()).toBe(true)
   })
 
@@ -57,6 +61,6 @@ describe('consultation-entry-view', () => {
     const wrapper = createWrapper('VERIFIED', false)
 
     expect(wrapper.get('[data-testid="consultation-denied"]').text()).toBe('问诊门禁未放行')
-    expect(wrapper.find('[data-testid="consultation-placeholder"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="consultation-hub"]').exists()).toBe(false)
   })
 })

@@ -6,6 +6,7 @@ import static com.sdas.server.appointment.support.AppointmentFixtures.get;
 import static com.sdas.server.appointment.support.AppointmentFixtures.postJson;
 import static com.sdas.server.appointment.support.AppointmentFixtures.verifiedPatient;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -132,7 +133,7 @@ class AppointmentPaymentContractTest extends AppointmentTestSupport {
     }
 
     @Test
-    void paySucceedsAndUpdatesBothStatuses() throws Exception {
+    void payCreatesPendingRecordWithoutUpdatingAppointment() throws Exception {
         PatientSession patient = verifiedPatient(mockMvc, jdbcTemplate);
         long appointmentId = createAppointment(mockMvc, patient.accessToken(),
                 AppointmentFixtures.DOCTOR_ONLINE, AppointmentFixtures.SCHEDULE_BOOKABLE);
@@ -148,7 +149,35 @@ class AppointmentPaymentContractTest extends AppointmentTestSupport {
         assertEquals(appointmentId, data.path("appointmentId").asLong());
         assertTrue(data.path("paymentId").asLong() > 0);
         assertEquals("MOCK", data.path("channel").asText());
+        assertEquals("PENDING", data.path("status").asText());
+        assertTrue(data.path("paidAt").isNull());
+        assertEquals("UNPAID", data.path("paymentStatus").asText());
+        assertEquals("PENDING_PAYMENT", data.path("appointmentStatus").asText());
+    }
+
+    @Test
+    void confirmSucceedsAndUpdatesBothStatuses() throws Exception {
+        PatientSession patient = verifiedPatient(mockMvc, jdbcTemplate);
+        long appointmentId = createAppointment(mockMvc, patient.accessToken(),
+                AppointmentFixtures.DOCTOR_ONLINE, AppointmentFixtures.SCHEDULE_BOOKABLE);
+        MvcResult payment = mockMvc.perform(postJson(
+                        "/api/v1/appointments/" + appointmentId + "/payments",
+                        patient.accessToken(), "{\"channel\":\"MOCK\",\"amount\":30.00}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        long paymentId = body(payment).path("data").path("paymentId").asLong();
+
+        MvcResult result = mockMvc.perform(postJson("/api/v1/appointments/" + appointmentId
+                        + "/payments/" + paymentId + "/confirm", patient.accessToken(), ""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andReturn();
+
+        JsonNode data = body(result).path("data");
+        assertEquals(appointmentId, data.path("appointmentId").asLong());
+        assertEquals(paymentId, data.path("paymentId").asLong());
         assertEquals("SUCCESS", data.path("status").asText());
+        assertFalse(data.path("paidAt").isNull());
         assertEquals("PAID", data.path("paymentStatus").asText());
         assertEquals("PAID", data.path("appointmentStatus").asText());
     }

@@ -188,8 +188,14 @@ public final class AppointmentFixtures {
     public static long createPaidAppointment(MockMvc mockMvc, String token, long doctorId,
                                              long scheduleId, BigDecimal fee) throws Exception {
         long appointmentId = createAppointment(mockMvc, token, doctorId, scheduleId);
-        mockMvc.perform(postJson("/api/v1/appointments/" + appointmentId + "/payments", token,
+        MvcResult payment = mockMvc.perform(postJson(
+                        "/api/v1/appointments/" + appointmentId + "/payments", token,
                         "{\"channel\":\"MOCK\",\"amount\":" + fee.toPlainString() + "}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        long paymentId = body(payment).path("data").path("paymentId").asLong();
+        mockMvc.perform(postJson("/api/v1/appointments/" + appointmentId + "/payments/"
+                        + paymentId + "/confirm", token, ""))
                 .andExpect(status().isOk());
         return appointmentId;
     }

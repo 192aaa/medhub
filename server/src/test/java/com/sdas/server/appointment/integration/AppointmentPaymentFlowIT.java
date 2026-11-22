@@ -49,8 +49,24 @@ class AppointmentPaymentFlowIT extends AppointmentTestSupport {
         assertEquals(AppointmentStatus.PENDING_PAYMENT.name(), created.get("appointment_status"));
         assertEquals(0, ((Number) created.get("version")).intValue());
 
-        mockMvc.perform(postJson("/api/v1/appointments/" + appointmentId + "/payments",
+        MvcResult payment = mockMvc.perform(postJson(
+                        "/api/v1/appointments/" + appointmentId + "/payments",
                         patient.accessToken(), "{\"channel\":\"MOCK\",\"amount\":30.00}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        long paymentId = body(payment).path("data").path("paymentId").asLong();
+
+        Map<String, Object> pending = jdbcTemplate.queryForMap(
+                "SELECT payment_status, appointment_status, version FROM appointment WHERE id = ?",
+                appointmentId);
+        assertEquals(PaymentStatus.UNPAID.name(), pending.get("payment_status"));
+        assertEquals(AppointmentStatus.PENDING_PAYMENT.name(), pending.get("appointment_status"));
+        Map<String, Object> pendingRecord = jdbcTemplate.queryForMap(
+                "SELECT status FROM payment_record WHERE appointment_id = ?", appointmentId);
+        assertEquals("PENDING", pendingRecord.get("status"));
+
+        mockMvc.perform(postJson("/api/v1/appointments/" + appointmentId + "/payments/"
+                        + paymentId + "/confirm", patient.accessToken(), ""))
                 .andExpect(status().isOk());
 
         Map<String, Object> paid = jdbcTemplate.queryForMap(

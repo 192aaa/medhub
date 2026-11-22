@@ -81,6 +81,28 @@ public class PaymentRecordRepository {
         return count != null && count > 0;
     }
 
+    /** @param paymentId 支付流水主键 @return 支付流水 */
+    public Optional<PaymentRecord> findById(long paymentId) {
+        return jdbcTemplate.query(
+                "SELECT * FROM payment_record WHERE id = ?", MAPPER, paymentId)
+                .stream().findFirst();
+    }
+
+    /**
+     * 乐观锁确认支付流水：仅 PENDING 且版本匹配时写成功。
+     *
+     * @param paymentId      支付流水主键
+     * @param expectedVersion 期望版本
+     * @return 更新行数
+     */
+    public int markSuccess(long paymentId, int expectedVersion) {
+        return jdbcTemplate.update(
+                "UPDATE payment_record SET status = ?, paid_at = NOW(), updated_at = NOW(), "
+                        + "version = version + 1 WHERE id = ? AND status = ? AND version = ?",
+                STATUS_CONV.convertToDatabaseColumn(PaymentRecordStatus.SUCCESS), paymentId,
+                STATUS_CONV.convertToDatabaseColumn(PaymentRecordStatus.PENDING), expectedVersion);
+    }
+
     private static LocalDateTime toLdt(Timestamp t) {
         return t == null ? null : t.toLocalDateTime();
     }

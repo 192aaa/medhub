@@ -84,6 +84,8 @@ test('M7 支付成功后进入问诊单提交页', async ({ page }) => {
   await expect(page.getByText('金额：¥30')).toBeVisible()
 
   await page.getByRole('button', { name: '确认支付' }).click()
+  await expect(page.getByRole('button', { name: '确认支付成功' })).toBeVisible()
+  await page.getByRole('button', { name: '确认支付成功' }).click()
 
   await expect(page).toHaveURL(/\/appointment\/consultation$/)
 })

@@ -52,6 +52,22 @@ public class PaymentController {
     }
 
     /**
+     * 确认支付（沙箱收银台回调接入点）。
+     *
+     * @param appointmentId 挂号单主键
+     * @param paymentId     支付流水主键
+     * @param httpRequest   HTTP 请求
+     * @return 支付响应
+     */
+    @PostMapping("/{appointmentId}/payments/{paymentId}/confirm")
+    public Result<PaymentResponse> confirm(@PathVariable long appointmentId,
+                                          @PathVariable long paymentId,
+                                          HttpServletRequest httpRequest) {
+        long patientId = patientIdExtractor.extract(httpRequest).patientId();
+        return Result.success(paymentService.confirm(patientId, appointmentId, paymentId));
+    }
+
+    /**
      * 查询支付状态。
      *
      * @param appointmentId 挂号单主键

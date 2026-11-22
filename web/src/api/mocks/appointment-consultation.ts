@@ -120,6 +120,17 @@ export const MOCK_PAYMENT: PaymentResponse = {
   appointmentStatus: 'PAID',
 }
 
+export const MOCK_PAYMENT_PENDING: PaymentResponse = {
+  appointmentId: 401,
+  paymentId: 501,
+  amount: 30.0,
+  channel: 'MOCK',
+  status: 'PENDING',
+  paidAt: null,
+  paymentStatus: 'UNPAID',
+  appointmentStatus: 'PENDING_PAYMENT',
+}
+
 export const MOCK_PAYMENT_STATUS: PaymentStatusResponse = {
   appointmentId: 401,
   paymentId: 501,
@@ -196,8 +207,14 @@ export const appointmentConsultationMockResponses: Record<string, AnyResult> = {
   },
   // M6 创建挂号预约
   'POST /v1/appointments': { code: 200, message: '成功', data: MOCK_APPOINTMENT },
-  // M7 支付成功
-  'POST /v1/appointments/401/payments': { code: 200, message: '成功', data: MOCK_PAYMENT },
+  // M7 创建待支付流水
+  'POST /v1/appointments/401/payments': { code: 200, message: '成功', data: MOCK_PAYMENT_PENDING },
+  // M7b 确认支付（沙箱回调）
+  'POST /v1/appointments/401/payments/501/confirm': {
+    code: 200,
+    message: '成功',
+    data: MOCK_PAYMENT,
+  },
   // M8 支付状态查询
   'GET /v1/appointments/401/payments': { code: 200, message: '成功', data: MOCK_PAYMENT_STATUS },
   // M9 上传图片
